@@ -27,22 +27,21 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Determine Docker contexts
-        id: contexts
         run: |
           if [ -d "jenkins-master/alpine/hotspot" ]; then
-            echo "master_context=jenkins-master/alpine/hotspot" >> $GITHUB_OUTPUT
+            echo "MASTER_CONTEXT=jenkins-master/alpine/hotspot" >> $GITHUB_ENV
           elif [ -d "docker/alpine/hotspot" ]; then
-            echo "master_context=docker/alpine/hotspot" >> $GITHUB_OUTPUT
+            echo "MASTER_CONTEXT=docker/alpine/hotspot" >> $GITHUB_ENV
           else
-            echo "master_context=" >> $GITHUB_OUTPUT
+            echo "MASTER_CONTEXT=" >> $GITHUB_ENV
           fi
 
           if [ -d "jenkins-agent/alpine" ]; then
-            echo "agent_context=jenkins-agent/alpine" >> $GITHUB_OUTPUT
+            echo "AGENT_CONTEXT=jenkins-agent/alpine" >> $GITHUB_ENV
           elif [ -d "docker-agents/alpine" ]; then
-            echo "agent_context=docker-agents/alpine" >> $GITHUB_OUTPUT
+            echo "AGENT_CONTEXT=docker-agents/alpine" >> $GITHUB_ENV
           else
-            echo "agent_context=" >> $GITHUB_OUTPUT
+            echo "AGENT_CONTEXT=" >> $GITHUB_ENV
           fi
 
       - name: Read image metadata from images.yml
@@ -52,11 +51,11 @@ jobs:
           python -c "import yaml, os; data = yaml.safe_load(open('images.yml')); f = open(os.environ['GITHUB_OUTPUT'], 'a'); f.write('master_name={}\n'.format(data.get('master', {}).get('name', ''))); f.write('master_version={}\n'.format(data.get('master', {}).get('version', ''))); f.write('agent_name={}\n'.format(data.get('agent', {}).get('name', ''))); f.write('agent_version={}\n'.format(data.get('agent', {}).get('version', ''))); f.close()"
 
       - name: Build & push controller image (master)
-        if: steps.contexts.outputs.master_context != ''
+        if: env.MASTER_CONTEXT != ''
         uses: docker/build-push-action@v4
         with:
-          context: ${{ steps.contexts.outputs.master_context }}
-          file: ${{ steps.contexts.outputs.master_context }}/Dockerfile
+          context: ${{ env.MASTER_CONTEXT }}
+          file: ${{ env.MASTER_CONTEXT }}/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
@@ -64,11 +63,11 @@ jobs:
             ${{ steps.meta.outputs.master_name }}:latest
 
       - name: Build & push agent image
-        if: steps.contexts.outputs.agent_context != ''
+        if: env.AGENT_CONTEXT != ''
         uses: docker/build-push-action@v4
         with:
-          context: ${{ steps.contexts.outputs.agent_context }}
-          file: ${{ steps.contexts.outputs.agent_context }}/Dockerfile
+          context: ${{ env.AGENT_CONTEXT }}
+          file: ${{ env.AGENT_CONTEXT }}/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
