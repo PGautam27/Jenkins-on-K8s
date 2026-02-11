@@ -1,0 +1,87 @@
+name: Build and push Jenkins images
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU and buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Determine Docker contexts
+        id: contexts
+        run: |
+          if [ -d "jenkins-master/alpine/hotspot" ]; then
+            echo "master_context=jenkins-master/alpine/hotspot" >> $GITHUB_OUTPUT
+          elif [ -d "docker/alpine/hotspot" ]; then
+            echo "master_context=docker/alpine/hotspot" >> $GITHUB_OUTPUT
+          else
+            echo "master_context=" >> $GITHUB_OUTPUT
+          fi
+
+          if [ -d "jenkins-agent/alpine" ]; then
+            echo "agent_context=jenkins-agent/alpine" >> $GITHUB_OUTPUT
+          elif [ -d "docker-agents/alpine" ]; then
+            echo "agent_context=docker-agents/alpine" >> $GITHUB_OUTPUT
+          else
+            echo "agent_context=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Read image metadata from images.yml
+        id: meta
+        run: |
+          pip install pyyaml
+          python - <<'PY'
+import yaml,os
+data = yaml.safe_load(open('images.yml'))
+master = data.get('master', {})
+agent = data.get('agent', {})
+with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+    f.write(f"master_name={master.get('name','')}\n")
+    f.write(f"master_version={master.get('version','')}\n")
+    f.write(f"agent_name={agent.get('name','')}\n")
+    f.write(f"agent_version={agent.get('version','')}\n")
+PY
+        shell: bash
+
+      - name: Build & push controller image (master)
+        if: steps.contexts.outputs.master_context != ''
+        uses: docker/build-push-action@v4
+        with:
+          context: ${{ steps.contexts.outputs.master_context }}
+          file: ${{ steps.contexts.outputs.master_context }}/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ steps.meta.outputs.master_name }}:${{ steps.meta.outputs.master_version }}
+            ${{ steps.meta.outputs.master_name }}:latest
+
+      - name: Build & push agent image
+        if: steps.contexts.outputs.agent_context != ''
+        uses: docker/build-push-action@v4
+        with:
+          context: ${{ steps.contexts.outputs.agent_context }}
+          file: ${{ steps.contexts.outputs.agent_context }}/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ steps.meta.outputs.agent_name }}:${{ steps.meta.outputs.agent_version }}
+            ${{ steps.meta.outputs.agent_name }}:latest
