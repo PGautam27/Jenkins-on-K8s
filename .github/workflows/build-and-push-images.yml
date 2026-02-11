@@ -49,18 +49,7 @@ jobs:
         id: meta
         run: |
           pip install pyyaml
-          python - <<'PY'
-import yaml,os
-data = yaml.safe_load(open('images.yml'))
-master = data.get('master', {})
-agent = data.get('agent', {})
-with open(os.environ['GITHUB_OUTPUT'],'a') as f:
-    f.write(f"master_name={master.get('name','')}\n")
-    f.write(f"master_version={master.get('version','')}\n")
-    f.write(f"agent_name={agent.get('name','')}\n")
-    f.write(f"agent_version={agent.get('version','')}\n")
-PY
-        shell: bash
+          python -c "import yaml, os; data = yaml.safe_load(open('images.yml')); f = open(os.environ['GITHUB_OUTPUT'], 'a'); f.write(f'master_name={data.get('master',{{}}).get('name','')}'+'\n'); f.write(f'master_version={data.get('master',{{}}).get('version','')}'+'\n'); f.write(f'agent_name={data.get('agent',{{}}).get('name','')}'+'\n'); f.write(f'agent_version={data.get('agent',{{}}).get('version','')}'+'\n'); f.close()"
 
       - name: Build & push controller image (master)
         if: steps.contexts.outputs.master_context != ''
