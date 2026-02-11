@@ -1,0 +1,11 @@
+master:
+  # Docker Hub repository name for controller image
+  name: gautamp27/jenkins-master
+  # semantic version or tag to push (example: 2.375.3-lts)
+  version: "latest"
+
+agent:
+  # Docker Hub repository name for agent image
+  name: gautamp27/jenkins-agent
+  # semantic version or tag to push (example: 4.11)
+  version: "latest"
